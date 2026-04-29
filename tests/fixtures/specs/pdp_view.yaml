@@ -1,0 +1,3 @@
+event: pdp_view
+extends: product_base
+properties: []

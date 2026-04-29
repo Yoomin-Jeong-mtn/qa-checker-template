@@ -1,0 +1,36 @@
+# 이벤트 스펙 예시 파일
+# 파일명은 이벤트명과 일치시켜 주세요 (예: pdp_view.yaml)
+#
+# extends: _common.yaml의 properties 그룹명을 지정하면 공통 프로퍼티를 상속합니다.
+# extends: common_product
+
+event: example_event
+properties:
+  - key: user_id
+    type: string
+    required: true
+    allow_empty: false
+
+  - key: screen_name
+    type: string
+    required: true
+    allow_empty: false
+    enum:
+      - home
+      - pdp
+      - cart
+
+  - key: is_logged_in
+    type: boolean
+    required: true
+    allow_empty: false
+
+  - key: item_count
+    type: integer
+    required: false
+    allow_empty: true
+
+  - key: created_at
+    type: datetime
+    required: true
+    allow_empty: false

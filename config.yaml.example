@@ -1,0 +1,13 @@
+repo_path: /path/to/qa-checker   # 이 레포를 클론한 절대 경로로 변경
+slack:
+  bot_token: xoxb-YOUR-BOT-TOKEN
+  channel: your-channel-name
+  channel_id: YOUR_CHANNEL_ID
+braze:
+  api_key: YOUR-BRAZE-API-KEY
+  server: rest.iad-01   # 예: rest.iad-01, rest.iad-06, rest.eu-01
+sheet:
+  specs_url: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv&gid=YOUR_GID
+  sheet_id: YOUR_SHEET_ID
+  tab_name: 이벤트 스펙
+  service_account: ~/.qa-checker/service_account.json

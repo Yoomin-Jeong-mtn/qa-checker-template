@@ -1,0 +1,8 @@
+# 어트리뷰트 스펙 예시
+# Braze 유저 어트리뷰트 검증에 사용됩니다.
+#
+# type 종류: string, boolean, integer, number, datetime, array
+
+key: example_attribute
+type: boolean
+description: 예시 어트리뷰트

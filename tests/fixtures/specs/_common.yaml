@@ -1,0 +1,28 @@
+properties:
+  product_base: &product_base
+    - key: platform
+      type: string
+      required: true
+      enum: [PC, ANDROID_APP, IOS_APP, MW]
+      allow_empty: false
+    - key: is_logged_in
+      type: boolean
+      required: true
+      allow_empty: false
+    - key: service_type
+      type: string
+      required: true
+      enum: [리테일, OM, 우아럭스]
+      allow_empty: false
+    - key: product_no
+      type: string
+      required: true
+      allow_empty: false
+    - key: review_score
+      type: number
+      required: true
+      allow_empty: false
+    - key: detail_category_name
+      type: string
+      required: true
+      allow_empty: true

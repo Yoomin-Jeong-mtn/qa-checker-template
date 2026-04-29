@@ -1,0 +1,17 @@
+# 시나리오 스펙 예시
+# 특정 사용자 흐름에서 발생해야 하는 이벤트 순서와 어트리뷰트 변화를 정의합니다.
+
+name: 예시 시나리오
+events:
+  - name: example_event_start
+    required: true
+  - name: example_event_complete
+    required: true
+  - name: example_event_cancel
+    required: false
+
+# 어트리뷰트 검증 (선택)
+# attribute_checks:
+#   - attribute: example_attribute
+#     trigger_event: example_event_complete
+#     expected_value: true

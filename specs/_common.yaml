@@ -1,0 +1,12 @@
+# 공통 프로퍼티 그룹 정의
+# 이벤트 YAML에서 extends: <group_name> 으로 참조합니다.
+#
+# 예시:
+# properties:
+#   common_product:
+#     - key: product_no
+#       type: string
+#       required: true
+#       allow_empty: false
+
+properties: {}
