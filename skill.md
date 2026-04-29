@@ -308,7 +308,7 @@ Slack 발송 후 아래를 출력한다:
 > 예를 들어 이런 경우에 유용해요:
 >
 > - **멤버십 가입 시나리오** — 가입 이벤트 발생 후 Braze 어트리뷰트가 올바르게 업데이트됐는지까지 한 번에 확인
-> - **패밀리 결제 시나리오** — 리더가 결제 요청하면 멤버한테 알림이 가고, 멤버가 수락하면 결제가 완료되는 흐름. 리더/멤버 각각 발생해야 하는 이벤트가 다르고, 서로의 프로퍼티 값이 일치하는지까지 교차 검증해요.
+> - **결제 완료 시나리오** — 결제 요청 → 결제 완료 흐름에서 각 단계 이벤트가 다 수집됐는지, 프로퍼티 값이 일치하는지 한 번에 검증
 >
 > 단순히 이벤트 프로퍼티만 체크하는 수준이라면 굳이 설정 안 해도 돼요.
 > 여러 이벤트가 순서대로 발생해야 하거나, 유저 간 데이터가 연결되는 흐름이 있을 때 특히 유용합니다.
@@ -319,7 +319,7 @@ Slack 발송 후 아래를 출력한다:
 
 사용자가 설명한 흐름을 바탕으로 아래 항목을 파악한다:
 
-- **시나리오 이름**: 어떤 흐름인지 (예: 패밀리 결제, 멤버십 가입)
+- **시나리오 이름**: 어떤 흐름인지 (예: 결제 완료, 멤버십 가입)
 - **필수 이벤트 목록**: 반드시 발생해야 하는 이벤트
 - **선택 이벤트 목록**: 발생할 수도 있는 이벤트 (예: 취소, 환불)
 - **어트리뷰트 체크**: 이벤트 후 Braze 어트리뷰트가 바뀌는 게 있는지
@@ -560,37 +560,3 @@ python3 {repo_path}/scripts/validate_attributes.py '{rows}' '{repo_path}/specs' 
 python3 {repo_path}/scripts/slack_notify_attributes.py '{results}' '{filename}' '{bot_token}' '{channel}'
 ```
 
----
-
-## 패밀리 주문 시나리오 검증 모드
-
-사용자가 `type: family_order`인 시나리오를 요청하면 아래 절차를 실행한다.
-
-### FO1. 설정 및 CSV 확인
-
-```bash
-cat ~/.qa-checker/config.yaml
-```
-
-`braze.api_key`, `braze.server`, `slack.bot_token`, `slack.channel`을 읽는다. CSV 경로를 확인한다.
-
-### FO2. 파싱 및 검증 실행
-
-```bash
-python3 {repo_path}/scripts/parse_csv.py {csv_path}
-python3 {repo_path}/scripts/load_spec.py {repo_path}/specs/
-python3 {repo_path}/scripts/validate_family_order.py '{rows}' '{spec}' '{scenario_name}' '{repo_path}/specs' '{braze_api_key}' '{braze_server}'
-```
-
-### FO3. 결과 보고 및 Slack 발송
-
-결과는 order_no별로 멤버/리더 구분해서 리포트한다:
-- 수집된 이벤트 목록
-- 미수집 이벤트
-- 프로퍼티 위반 (스펙 YAML 참조)
-- 어트리뷰트 불일치
-- cross_check 불일치
-
-```bash
-python3 {repo_path}/scripts/slack_notify_family_order.py '{results}' '{filename}' '{bot_token}' '{channel}'
-```
