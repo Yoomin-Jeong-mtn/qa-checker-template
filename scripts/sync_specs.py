@@ -2,7 +2,7 @@
 """구글 시트 스펙 탭에서 데이터를 가져와 YAML 파일로 동기화하고 git commit합니다.
 
 Usage:
-    python3 sync_specs.py <sheet_csv_url> <specs_dir> <repo_path>
+    python3 sync_specs.py <sheet_csv_url> <specs_dir> <repo_path> [config_path]
 """
 
 import csv
@@ -19,11 +19,61 @@ import yaml
 TYPE_MAP = {
     'string': 'string',
     'boolean': 'boolean',
+    'bool': 'boolean',
     'number': 'number',
+    'float': 'number',
     'integer': 'integer',
+    'int': 'integer',
     'time': 'datetime',
     'datetime': 'datetime',
+    'date': 'datetime',
+    'timestamp': 'datetime',
 }
+
+# config.yaml의 column_map에서 필수로 인식할 값 기본값
+DEFAULT_REQUIRED_VALUES = {
+    'Y': ['Y', '필수', 'Required', 'required', 'TRUE', 'true', '1', 'O'],
+    'N': ['N', '선택', 'Optional', 'optional', 'FALSE', 'false', '0'],
+    'CONDITIONAL': ['CONDITIONAL', 'conditional', '조건부'],
+}
+
+
+def load_column_map(config_path: str):
+    """config.yaml에서 column_map과 required_values를 읽어온다. 없으면 기본값 반환."""
+    col_map = {
+        'event_name': ['이벤트 명', '이벤트명', 'event_name', 'Event Name', 'event'],
+        'property_key': ['프로퍼티명', 'property_key', 'Property Name', 'key', 'property'],
+        'data_type': ['데이터 타입', 'data_type', 'Type', 'type', '타입'],
+        'required': ['필수 여부', 'required', 'Required', '필수'],
+        'condition': ['내용 조건', 'condition', 'Condition', '조건', '설명', 'description'],
+    }
+    req_vals = dict(DEFAULT_REQUIRED_VALUES)
+    try:
+        with open(Path(config_path).expanduser(), encoding='utf-8') as f:
+            config = yaml.safe_load(f) or {}
+        sheet_cfg = config.get('sheet') or {}
+        for field, val in (sheet_cfg.get('column_map') or {}).items():
+            col_map[field] = [val] if isinstance(val, str) else val
+        req_vals.update(sheet_cfg.get('required_values') or {})
+    except Exception:
+        pass
+    return col_map, req_vals
+
+
+def pick_col(row: dict, candidates: list) -> str:
+    """후보 컬럼명 목록에서 row에 존재하는 첫 번째 값을 반환."""
+    for c in candidates:
+        if c in row:
+            return (row[c] or '').strip()
+    return ''
+
+
+def normalize_required(val: str, required_values: dict) -> str:
+    val = val.strip()
+    for canonical, aliases in required_values.items():
+        if val in aliases or val.upper() in [a.upper() for a in aliases]:
+            return canonical
+    return 'N'
 
 
 def fetch_csv(url: str) -> str:
@@ -58,26 +108,30 @@ def parse_condition(required_str: str, condition: str) -> dict:
     return result
 
 
-def parse_sheet(csv_text: str) -> dict:
+def parse_sheet(csv_text: str, col_map: dict, required_values: dict) -> dict:
     reader = csv.DictReader(io.StringIO(csv_text))
     events: dict = defaultdict(list)
     seen: set = set()
 
     for row in reader:
-        event_name = (row.get('이벤트 명') or row.get('이벤트명') or '').strip()
-        prop_key = (row.get('프로퍼티명') or '').strip()
+        event_name = pick_col(row, col_map['event_name'])
+        prop_key = pick_col(row, col_map['property_key'])
         if not event_name or not prop_key:
             continue
         if (event_name, prop_key) in seen:
             continue
         seen.add((event_name, prop_key))
 
-        data_type = (row.get('데이터 타입') or 'string').strip().lower()
-        required_str = (row.get('필수 여부') or 'N').strip()
-        condition = (row.get('내용 조건') or '').strip()
+        raw_type = pick_col(row, col_map['data_type']) or 'string'
+        data_type = TYPE_MAP.get(raw_type.lower(), 'string')
+
+        raw_required = pick_col(row, col_map['required']) or 'N'
+        required_str = normalize_required(raw_required, required_values)
+
+        condition = pick_col(row, col_map['condition'])
 
         extras = parse_condition(required_str, condition)
-        prop = {'key': prop_key, 'type': TYPE_MAP.get(data_type, 'string')}
+        prop = {'key': prop_key, 'type': data_type}
         prop.update(extras)
         events[event_name].append(prop)
 
@@ -93,8 +147,7 @@ def dump_event_yaml(event_name: str, props: list) -> str:
     )
 
 
-def diff_props(old_content: str, new_props: list) -> list[str]:
-    """기존 YAML과 새 props를 비교해 변경사항 요약 문자열 목록 반환."""
+def diff_props(old_content: str, new_props: list) -> list:
     try:
         old_data = yaml.safe_load(old_content)
         old_map = {p['key']: p for p in (old_data.get('properties') or [])}
@@ -131,10 +184,7 @@ def diff_props(old_content: str, new_props: list) -> list[str]:
 
 
 def build_commit_message(change_map: dict) -> str:
-    """change_map: {event_name: [change_str, ...] | None(신규)}"""
     total = len(change_map)
-
-    # 커밋 제목 생성
     all_details = []
     for event, details in sorted(change_map.items()):
         if details is None:
@@ -155,7 +205,6 @@ def build_commit_message(change_map: dict) -> str:
         suffix = f' 외 {total - 3}개' if total > 3 else ''
         title = f'chore: sync specs - {total}개 이벤트 변경 ({events_str}{suffix})'
 
-    # 본문 상세 내역
     body_lines = []
     for event, details in sorted(change_map.items()):
         if details is None:
@@ -167,7 +216,9 @@ def build_commit_message(change_map: dict) -> str:
     return title + '\n\n' + '\n'.join(body_lines)
 
 
-def sync(sheet_url: str, specs_dir: str, repo_path: str):
+def sync(sheet_url: str, specs_dir: str, repo_path: str, config_path: str = '~/.qa-checker/config.yaml'):
+    col_map, required_values = load_column_map(config_path)
+
     print('📥 시트 데이터 가져오는 중...')
     try:
         csv_text = fetch_csv(sheet_url)
@@ -176,14 +227,15 @@ def sync(sheet_url: str, specs_dir: str, repo_path: str):
         print('시트가 "링크 있는 사람 누구나 보기" 로 설정되어 있는지 확인하세요.')
         sys.exit(1)
 
-    events = parse_sheet(csv_text)
+    events = parse_sheet(csv_text, col_map, required_values)
     if not events:
-        print('❌ 파싱된 이벤트가 없습니다. 시트 헤더를 확인하세요.')
+        print('❌ 파싱된 이벤트가 없습니다. 시트 헤더 또는 config의 column_map을 확인하세요.')
+        print(f'   감지된 컬럼: {", ".join(csv.DictReader(io.StringIO(csv_text)).fieldnames or [])}')
         sys.exit(1)
     print(f'✅ {len(events)}개 이벤트 파싱 완료')
 
     specs_path = Path(specs_dir)
-    change_map: dict = {}  # {event_name: [변경사항] or None(신규)}
+    change_map: dict = {}
 
     for event_name, props in sorted(events.items()):
         file_path = specs_path / f'{event_name}.yaml'
@@ -217,6 +269,7 @@ def sync(sheet_url: str, specs_dir: str, repo_path: str):
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-        print('Usage: sync_specs.py <sheet_url> <specs_dir> <repo_path>')
+        print('Usage: sync_specs.py <sheet_url> <specs_dir> <repo_path> [config_path]')
         sys.exit(1)
-    sync(sys.argv[1], sys.argv[2], sys.argv[3])
+    config = sys.argv[4] if len(sys.argv) > 4 else '~/.qa-checker/config.yaml'
+    sync(sys.argv[1], sys.argv[2], sys.argv[3], config)
